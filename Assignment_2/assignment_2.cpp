@@ -9,40 +9,40 @@
 /* A structure type to represent a year/month/day combination */
 struct Date
 {
-    int day{0};
-    int month{0};
-    int year{0};
+    int day{ 0 };
+    int month{ 0 };
+    int year{ 0 };
 };
 
 /* A structure type to represent an hour:minute pair */
 struct TimeOfDay
 {
-    int hour{0};
-    int minute{0};
+    int hour{ 0 };
+    int minute{ 0 };
 };
 
 /* A structure type to store the parameters of a particular sailing */
 struct Sailing
 {
-    int route_number{0};
-    std::string source_terminal{""};
-    std::string dest_terminal{""};
-    std::string vessel_name{""};
+    int route_number{ 0 };
+    std::string source_terminal{ "" };
+    std::string dest_terminal{ "" };
+    std::string vessel_name{ "" };
 
     Date departure_date{};
     TimeOfDay scheduled_departure_time{};
 
-    int expected_duration{0};
-    int actual_duration{0};
+    int expected_duration{ 0 };
+    int actual_duration{ 0 };
 };
 
 /* A structure type to store aggregated performance data for a single
    route. */
 struct RouteStatistics
 {
-    int route_number{0};
-    int total_sailings{0};
-    int late_sailings{0};
+    int route_number{ 0 };
+    int total_sailings{ 0 };
+    int late_sailings{ 0 };
 };
 
 /* A structure type to store aggregated performance data for a single
@@ -50,9 +50,20 @@ struct RouteStatistics
 struct DayStatistics
 {
     Date date{};
-    int total_sailings{0};
-    int late_sailings{0};
+    int total_sailings{ 0 };
+    int late_sailings{ 0 };
 };
+
+
+/* Helper Struct for including ratio in Day Statistc*/
+struct ratio_DayStat
+{
+    Date date{};
+    int total_sailings{ 0 };
+    int late_sailings{ 0 };
+    int ratio{ late_sailings / total_sailings };
+};
+
 
 /* Structure types to represent various issues that may occur during parsing */
 
@@ -88,6 +99,20 @@ struct InvalidTimeException
 };
 
 /* Function prototypes */
+/* Put your implementations of these functions in a2_functions.cpp */
+
+
+/*helpers for parse_sailing*/
+bool check_space_errors(const std::string& el);
+
+int convert_to_int_and_check(const std::string& str);
+
+void time_check(const int hour, const int minute);
+
+/*helpers for best_days & worst_days*/
+bool cmp_date(const Date& date1, const Date& date2);
+
+void update_ratio_struct(ratio_DayStat& stat, const Sailing& sailing);
 
 /* Functions to implement */
 
@@ -138,9 +163,105 @@ struct InvalidTimeException
            involved in this function, rather than putting all of the code
            in one place.
 */
-Sailing parse_sailing(std::string const &input_line)
+Sailing parse_sailing(std::string const& input_line)
 {
     /* Your Code Here */
+    std::string temp{};
+    std::vector<std::string> elements{};
+    Sailing S{};
+
+    for (size_t i = 0; i < input_line.size(); i++) {
+        if (input_line.at(i) != ',')
+            temp += input_line.at(i);
+        else {
+            elements.push_back(temp);
+            temp.clear();
+
+        }
+
+    }
+
+    if (elements.size() != 11) {
+        const IncompleteLineException e{ elements.size() };
+
+        throw e;
+    }
+
+    for (size_t i{ 0 }; i < elements.size(); i++) {
+        if (check_space_errors(elements.at(i))) {
+            const EmptyFieldException e{ i };
+            throw e;
+        }
+
+    }
+    for (size_t i{ 0 }; i < elements.size(); i++) {
+        switch (i) {
+        case 0:
+            S.route_number = convert_to_int_and_check(elements.at(i));
+        case 1:
+            S.source_terminal = elements.at(i);
+        case2:
+            S.dest_terminal = elements.at(i);
+        case 3:
+            S.departure_date.year = convert_to_int_and_check(elements.at(i));
+        case 4:
+            S.departure_date.month = convert_to_int_and_check(elements.at(i));
+        case 5:
+            S.departure_date.day = convert_to_int_and_check(elements.at(i));
+        case 6:
+            S.scheduled_departure_time.hour = convert_to_int_and_check(elements.at(i));
+        case 7:
+            S.scheduled_departure_time.minute = convert_to_int_and_check(elements.at(i));
+        case 8:
+            S.vessel_name = elements.at(i);
+        case 9:
+            S.expected_duration = convert_to_int_and_check(elements.at(i));
+        case 10:
+            S.actual_duration = convert_to_int_and_check(elements.at(i));
+        }
+
+    }
+
+    time_check(S.scheduled_departure_time.hour, S.scheduled_departure_time.minute);
+
+    return S;
+
+}
+bool check_space_errors(const std::string& el) {
+    bool space{ false };
+    for (size_t i{ 0 }; i < el.size(); i++) {
+        if (!std::isspace(el.at(i))) {
+            space = false;
+            break;
+        }
+        else {
+            space = true;
+        }
+
+    }
+    return space;
+}
+
+int convert_to_int_and_check(const std::string& str) {
+    int i{};
+    try {
+        i = stoi(str);
+    }
+    catch (std::invalid_argument) {
+        const NonNumericDataException e{ str };
+
+        throw e;
+    }
+    return i;
+}
+
+void time_check(const int hour, const int minute) {
+    if (!(hour <= 23 && hour >= 0 && minute <= 59 && minute >= 0)) {
+        const InvalidTimeException e{ hour, minute };
+
+        throw e;
+    }
+
 }
 
 /* performance_by_route(sailings)
@@ -166,9 +287,39 @@ Sailing parse_sailing(std::string const &input_line)
      instance in the result.
 
 */
-std::vector<RouteStatistics> performance_by_route(std::vector<Sailing> const &sailings)
+std::vector<RouteStatistics> performance_by_route(std::vector<Sailing> const& sailings)
 {
     /* Your Code Here */
+    std::vector <RouteStatistics> RS;
+    std::vector <int> route_num;
+
+
+    for (size_t i{ 0 }; i < sailings.size(); i++) {
+        bool in{ false };
+        for (size_t j{ 0 }; j < route_num.size(); j++) {
+            if (sailings.at(i).route_number == route_num.at(j)) {
+                in = true;
+                RS.at(j).total_sailings++;
+                if (sailings.at(i).actual_duration - sailings.at(i).expected_duration >= 5) {
+                    RS.at(j).late_sailings++;
+                }
+                break;
+            }
+
+        }
+
+        if (!in) {
+            RouteStatistics temp{};
+            temp.route_number = sailings.at(i).route_number;
+            temp.total_sailings++;
+            if (sailings.at(i).actual_duration - sailings.at(i).expected_duration >= 5) {
+                temp.late_sailings++;
+            }
+            RS.push_back(temp);
+        }
+    }
+    return RS;
+
 }
 
 /* best_days(sailings)
@@ -194,10 +345,64 @@ std::vector<RouteStatistics> performance_by_route(std::vector<Sailing> const &sa
      corresponds to a different date (meeting the criteria of "best days" above).
      If the input vector of sailings is empty, the return value will be an empty vector.
 */
-std::vector<DayStatistics> best_days(std::vector<Sailing> const &sailings)
+std::vector<DayStatistics> best_days(std::vector<Sailing> const& sailings)
 {
     /* Your Code Here */
+
+    std::vector <DayStatistics> best_days;
+    std::vector <ratio_DayStat> rds{};
+    for (size_t i = 0; i < sailings.size(); i++)
+    {
+        bool in{ false };
+        for (size_t j = 0; j < rds.size(); j++)
+        {
+            if (cmp_date(sailings.at(i).departure_date, rds.at(j).date)) {
+                in = true;
+                update_ratio_struct(rds.at(j), sailings.at(i));
+                break;
+            }
+
+        }
+        if (!in) {
+            ratio_DayStat temp{ {sailings.at(i).departure_date.day,sailings.at(i).departure_date.month,sailings.at(i).departure_date.year},1,0 };
+            rds.push_back(temp);
+            update_ratio_struct(rds.back(), sailings.at(i));
+        }
+    }
+    int sailing_ratio{ rds.at(0).ratio };
+    for (ratio_DayStat stat : rds)
+    {
+        if (stat.ratio < sailing_ratio)
+            sailing_ratio = stat.ratio;
+    }
+
+    for (ratio_DayStat stat : rds)
+    {
+        if (stat.ratio == sailing_ratio) {
+            DayStatistics temp{};
+            temp.date.day = stat.date.day;
+            temp.date.month = stat.date.month;
+            temp.date.year = stat.date.year;
+            temp.total_sailings = stat.total_sailings;
+            temp.late_sailings = stat.late_sailings;
+            best_days.push_back(temp);
+        }
+    }
+
+    return best_days;
 }
+bool cmp_date(const Date& date1, const Date& date2) {
+    if (date1.day == date2.day && date1.month == date2.month && date1.day == date2.day)
+        return true;
+    else
+        return false;
+}
+void update_ratio_struct(ratio_DayStat& stat, const Sailing& sailing) {
+    stat.total_sailings++;
+    if (sailing.actual_duration - sailing.expected_duration >= 5)
+        stat.late_sailings++;
+}
+
 
 /* worst_days(sailings)
    See the description of best_days().
@@ -218,21 +423,63 @@ std::vector<DayStatistics> best_days(std::vector<Sailing> const &sailings)
      corresponds to a different date (meeting the criteria of "worst days" above).
      If the input vector of sailings is empty, the return value will be an empty vector.
 */
-std::vector<DayStatistics> worst_days(std::vector<Sailing> const &sailings)
+std::vector<DayStatistics> worst_days(std::vector<Sailing> const& sailings)
 {
     /* Your Code Here */
+    std::vector <DayStatistics> worst_days;
+    std::vector <ratio_DayStat> rds{};
+    for (size_t i = 0; i < sailings.size(); i++)
+    {
+        bool in{ false };
+        for (size_t j = 0; j < rds.size(); j++)
+        {
+            if (cmp_date(sailings.at(i).departure_date, rds.at(j).date)) {
+                in = true;
+                update_ratio_struct(rds.at(j), sailings.at(i));
+                break;
+            }
+
+        }
+        if (!in) {
+            ratio_DayStat temp{ {sailings.at(i).departure_date.day,sailings.at(i).departure_date.month,sailings.at(i).departure_date.year},1,0 };
+            rds.push_back(temp);
+            update_ratio_struct(rds.back(), sailings.at(i));
+        }
+    }
+    int  sailing_ratio{ rds.at(0).ratio };
+    for (ratio_DayStat stat : rds)
+    {
+        if (stat.ratio > sailing_ratio)
+            sailing_ratio = stat.ratio;
+    }
+
+    for (ratio_DayStat stat : rds)
+    {
+        if (stat.ratio == sailing_ratio) {
+            DayStatistics temp{};
+            temp.date.day = stat.date.day;
+            temp.date.month = stat.date.month;
+            temp.date.year = stat.date.year;
+            temp.total_sailings = stat.total_sailings;
+            temp.late_sailings = stat.late_sailings;
+            worst_days.push_back(temp);
+        }
+    }
+
+    return worst_days;
 }
 
+/* Provided functions (already implemented in a2_functions.cpp) */
 /* You do not have to understand or modify these functions (although they
    are of the same level of difficulty as the other parts of the assignment) */
-std::vector<Sailing> read_sailings(std::string const &input_filename)
+std::vector<Sailing> read_sailings(std::string const& input_filename)
 {
     std::vector<Sailing> all_sailings;
     std::ifstream input_file;
     input_file.open(input_filename);
 
-    int valid_sailings{0};
-    int total_lines{0};
+    int valid_sailings{ 0 };
+    int total_lines{ 0 };
 
     if (input_file.is_open())
     {
@@ -242,26 +489,26 @@ std::vector<Sailing> read_sailings(std::string const &input_filename)
             total_lines++;
             try
             {
-                Sailing s{parse_sailing(line)};
+                Sailing s{ parse_sailing(line) };
                 valid_sailings++;
                 all_sailings.push_back(s);
             }
-            catch (IncompleteLineException &e)
+            catch (IncompleteLineException& e)
             {
                 std::cout << "Line " << total_lines << " is invalid: ";
                 std::cout << e.num_fields << " fields found." << std::endl;
             }
-            catch (EmptyFieldException &e)
+            catch (EmptyFieldException& e)
             {
                 std::cout << "Line " << total_lines << " is invalid: ";
                 std::cout << "Field " << e.which_field << " is empty." << std::endl;
             }
-            catch (NonNumericDataException &e)
+            catch (NonNumericDataException& e)
             {
                 std::cout << "Line " << total_lines << " is invalid: ";
                 std::cout << "\"" << e.bad_field << "\" is non-numeric." << std::endl;
             }
-            catch (InvalidTimeException &e)
+            catch (InvalidTimeException& e)
             {
                 std::cout << "Line " << total_lines << " is invalid: ";
                 std::cout << e.bad_time.hour << ":" << e.bad_time.minute << " is not a valid time." << std::endl;
@@ -273,13 +520,13 @@ std::vector<Sailing> read_sailings(std::string const &input_filename)
     {
         throw std::runtime_error("Unable to open input file");
     }
-    int invalid_sailings{total_lines - valid_sailings};
+    int invalid_sailings{ total_lines - valid_sailings };
     std::cout << "Read " << valid_sailings << " records." << std::endl;
     std::cout << "Skipped " << invalid_sailings << " invalid records." << std::endl;
     return all_sailings;
 }
 
-void print_sailing(Sailing const &sailing)
+void print_sailing(Sailing const& sailing)
 {
     std::cout << "Route " << sailing.route_number;
     std::cout << " (" << sailing.source_terminal << " -> " << sailing.dest_terminal << "): ";
@@ -292,24 +539,24 @@ void print_sailing(Sailing const &sailing)
     std::cout << sailing.actual_duration << " minutes (" << sailing.expected_duration << " expected)" << std::endl;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
-    if (argc < 3)
-    {
-        std::cout << "Usage: ./assignment_2 action input_filename" << std::endl;
-        std::cout << "       where action is either 'route_summary' or 'days'" << std::endl;
-        return 1;
-    }
+    /* if (argc < 3)
+     {
+         std::cout << "Usage: ./assignment_2 action input_filename" << std::endl;
+         std::cout << "       where action is either 'route_summary' or 'days'" << std::endl;
+         return 1;
+     }*/
 
-    std::string action{argv[1]};
-    std::string input_filename{argv[2]};
+    std::string action{ "days" };
+    std::string input_filename{ "./data/01_June10_morning_Route1.txt" };
 
-    auto all_sailings{read_sailings(input_filename)};
+    auto all_sailings{ read_sailings(input_filename) };
 
     if (action == "route_summary")
     {
         std::cout << "Performance by route:" << std::endl;
-        auto statistics{performance_by_route(all_sailings)};
+        auto statistics{ performance_by_route(all_sailings) };
         for (auto stats : statistics)
         {
             std::cout << "Route " << stats.route_number << ": " << stats.total_sailings << " sailings (" << stats.late_sailings << " late)" << std::endl;
@@ -317,8 +564,8 @@ int main(int argc, char **argv)
     }
     else if (action == "days")
     {
-        auto best{best_days(all_sailings)};
-        auto worst{worst_days(all_sailings)};
+        auto best{ best_days(all_sailings) };
+        auto worst{ worst_days(all_sailings) };
         std::cout << "Best days:" << std::endl;
         for (auto stats : best)
         {
