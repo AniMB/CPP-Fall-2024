@@ -61,7 +61,7 @@ struct ratio_DayStat
     Date date{};
     int total_sailings{ 0 };
     int late_sailings{ 0 };
-    int ratio{ late_sailings / total_sailings };
+    double ratio{ 0 };
 };
 
 
@@ -175,14 +175,16 @@ Sailing parse_sailing(std::string const& input_line)
             temp += input_line.at(i);
         else {
             elements.push_back(temp);
+            /*std::cout << temp;*/
             temp.clear();
 
         }
 
     }
-
+    elements.push_back(temp);
+ 
     if (elements.size() != 11) {
-        const IncompleteLineException e{ elements.size() };
+        const IncompleteLineException e{ elements.size()};
 
         throw e;
     }
@@ -197,27 +199,39 @@ Sailing parse_sailing(std::string const& input_line)
     for (size_t i{ 0 }; i < elements.size(); i++) {
         switch (i) {
         case 0:
-            S.route_number = convert_to_int_and_check(elements.at(i));
+            S.route_number = convert_to_int_and_check(elements.at(i)); 
+            break;
         case 1:
             S.source_terminal = elements.at(i);
-        case2:
+            break;
+        case 2:
             S.dest_terminal = elements.at(i);
+            break;
         case 3:
             S.departure_date.year = convert_to_int_and_check(elements.at(i));
+            break;
         case 4:
             S.departure_date.month = convert_to_int_and_check(elements.at(i));
+            break;
         case 5:
             S.departure_date.day = convert_to_int_and_check(elements.at(i));
+            break;
         case 6:
             S.scheduled_departure_time.hour = convert_to_int_and_check(elements.at(i));
+            break;
         case 7:
             S.scheduled_departure_time.minute = convert_to_int_and_check(elements.at(i));
+            break;
         case 8:
             S.vessel_name = elements.at(i);
+            break;
         case 9:
             S.expected_duration = convert_to_int_and_check(elements.at(i));
+            break;
         case 10:
             S.actual_duration = convert_to_int_and_check(elements.at(i));
+            break;
+            
         }
 
     }
@@ -247,7 +261,7 @@ int convert_to_int_and_check(const std::string& str) {
     try {
         i = stoi(str);
     }
-    catch (std::invalid_argument) {
+    catch (std::invalid_argument &) {
         const NonNumericDataException e{ str };
 
         throw e;
@@ -291,13 +305,13 @@ std::vector<RouteStatistics> performance_by_route(std::vector<Sailing> const& sa
 {
     /* Your Code Here */
     std::vector <RouteStatistics> RS;
-    std::vector <int> route_num;
+    
 
 
     for (size_t i{ 0 }; i < sailings.size(); i++) {
         bool in{ false };
-        for (size_t j{ 0 }; j < route_num.size(); j++) {
-            if (sailings.at(i).route_number == route_num.at(j)) {
+        for (size_t j{ 0 }; j < RS.size(); j++) {
+            if (sailings.at(i).route_number == RS.at(j).route_number) {
                 in = true;
                 RS.at(j).total_sailings++;
                 if (sailings.at(i).actual_duration - sailings.at(i).expected_duration >= 5) {
@@ -349,7 +363,7 @@ std::vector<DayStatistics> best_days(std::vector<Sailing> const& sailings)
 {
     /* Your Code Here */
 
-    std::vector <DayStatistics> best_days;
+    std::vector <DayStatistics> best_days{};
     std::vector <ratio_DayStat> rds{};
     for (size_t i = 0; i < sailings.size(); i++)
     {
@@ -363,13 +377,14 @@ std::vector<DayStatistics> best_days(std::vector<Sailing> const& sailings)
             }
 
         }
+        
         if (!in) {
-            ratio_DayStat temp{ {sailings.at(i).departure_date.day,sailings.at(i).departure_date.month,sailings.at(i).departure_date.year},1,0 };
+            ratio_DayStat temp{ {sailings.at(i).departure_date.day,sailings.at(i).departure_date.month,sailings.at(i).departure_date.year},0,0,0 };
             rds.push_back(temp);
             update_ratio_struct(rds.back(), sailings.at(i));
         }
     }
-    int sailing_ratio{ rds.at(0).ratio };
+    double sailing_ratio{ rds.at(0).ratio };
     for (ratio_DayStat stat : rds)
     {
         if (stat.ratio < sailing_ratio)
@@ -392,15 +407,17 @@ std::vector<DayStatistics> best_days(std::vector<Sailing> const& sailings)
     return best_days;
 }
 bool cmp_date(const Date& date1, const Date& date2) {
-    if (date1.day == date2.day && date1.month == date2.month && date1.day == date2.day)
+    if (date1.day == date2.day && date1.month == date2.month && date1.year == date2.year)
         return true;
     else
         return false;
 }
 void update_ratio_struct(ratio_DayStat& stat, const Sailing& sailing) {
+   
     stat.total_sailings++;
     if (sailing.actual_duration - sailing.expected_duration >= 5)
         stat.late_sailings++;
+    stat.ratio = (double)stat.late_sailings /(double) stat.total_sailings;
 }
 
 
@@ -441,18 +458,18 @@ std::vector<DayStatistics> worst_days(std::vector<Sailing> const& sailings)
 
         }
         if (!in) {
-            ratio_DayStat temp{ {sailings.at(i).departure_date.day,sailings.at(i).departure_date.month,sailings.at(i).departure_date.year},1,0 };
+            ratio_DayStat temp{ {sailings.at(i).departure_date.day,sailings.at(i).departure_date.month,sailings.at(i).departure_date.year},0,0,0 };
             rds.push_back(temp);
             update_ratio_struct(rds.back(), sailings.at(i));
         }
     }
-    int  sailing_ratio{ rds.at(0).ratio };
+    double  sailing_ratio{ rds.at(0).ratio };
     for (ratio_DayStat stat : rds)
     {
         if (stat.ratio > sailing_ratio)
             sailing_ratio = stat.ratio;
     }
-
+    
     for (ratio_DayStat stat : rds)
     {
         if (stat.ratio == sailing_ratio) {
@@ -549,7 +566,7 @@ int main(int argc, char** argv)
      }*/
 
     std::string action{ "days" };
-    std::string input_filename{ "./data/01_June10_morning_Route1.txt" };
+    std::string input_filename{ "./data/10_Sept2017_Aug2022_AllRoutes.txt" };
 
     auto all_sailings{ read_sailings(input_filename) };
 
