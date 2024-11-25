@@ -253,26 +253,103 @@ private:
     /* Your code here */
     /* (Add any private data or functions you need)*/
     /* (You may also add new #include directives at the top of the file) */
+    std::map<std::string, Record> db;
+};
+class Courses {
+public:
+
+    std::set<std::pair<std::string, int>> list;
+public:
+    Courses(std::string course) {
+        list.insert({ course,0 });
+    }
+    Courses() {
+        list.insert({ "",0});
+    }
+    Courses(std::string course, int marks) {
+        list.insert({ course,marks });
+    }
 };
 
+class Record {
+public:
+    std::map<std::string, Courses> record;
+public:
+    Record() {
+        Courses courses{};
+        record[0] = courses;
+    }
+    Record(std::string term_id) {
+        Courses courses{};
+        record[term_id] = courses;
+    }
+    Record(std::string term_id, Courses &courses) {
+        
+        record[term_id] = courses;
+    }
+    
+
+
+};
 StudentDB::StudentDB()
 {
     /* Your code here */
+    Record rec{};
+    db.insert({ "",rec });
+
+
 }
 
 void StudentDB::add_student(std::string const &student_id)
 {
     /* Your code here */
+    
+    Record rec{};
+    if (this->db.find(student_id) == this->db.end())
+        this->db.insert({ student_id,rec });
+    else
+        throw DBDuplicateError{};
+    
 }
 
 std::set<std::string> StudentDB::all_students()
 {
     /* Your code here */
+    std::set<std::string> ids{};
+    for (auto iter  : this->db) {
+        ids.insert(iter.first);
+    }
+    return ids;
 }
 
 void StudentDB::enroll(std::string const &student_id, std::string const &course_id, std::string const &term)
 {
     /* Your code here */
+    for (const auto &it : this->db) {
+        for (const auto& iter : it.second.record) {
+            for (const auto& iterator : iter.second.list) {
+                if (iterator.first==course_id){
+                    throw DBDuplicateError{};
+                }
+                
+            }
+        }
+    }
+    bool check{false};
+    for (const auto& iter : this->db) {
+        if (iter.first == student_id)
+            check = true;
+    }
+    if (!check) {
+        StudentNotFoundError e{ student_id };
+        throw e;
+    }
+
+    Courses course{ course_id };
+    Record rec{ term, course };
+    db.insert({ student_id, rec });
+
+        
 }
 
 std::set<std::pair<std::string, std::string>> StudentDB::get_student_enrollment_records(std::string const &student_id)
