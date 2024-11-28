@@ -248,7 +248,30 @@ public:
     double compute_course_average(std::string const &course_id, std::string const &term);
 
     /* Do not modify any of the code above this line */
-
+    void StudentNotFoundChecker(const std::string& student_id) {
+        bool check{ false };
+        for (const auto& iter : this->db) {
+            if (iter.first == student_id)
+                check = true;
+        }
+        if (!check) {
+            StudentNotFoundError e{ student_id };
+            throw e;
+        }
+    }
+    void EnrolmentChecker(std::string const& student_id, std::string const& course_id, std::string const& term) {
+        bool check = false;
+        if (this->db[student_id].record.find(term) != this->db[student_id].record.end()) {
+            for (const auto& it : this->db[student_id].record[term].list) {
+                if (it.first == course_id)
+                    check = true;
+            }
+        }
+        if (!check) {
+            EnrollmentNotFoundError e{ student_id, course_id, term };
+            throw e;
+        }
+    }
 private:
     /* Your code here */
     /* (Add any private data or functions you need)*/
@@ -258,17 +281,13 @@ private:
 class Courses {
 public:
 
-    std::set<std::pair<std::string, int>> list;
+    std::map<std::string, unsigned int>list;
 public:
-    Courses(std::string course) {
-        list.insert({ course,0 });
-    }
+    
     Courses() {
-        list.insert({ "",0});
+        list.insert({ "",111});
     }
-    Courses(std::string course, int marks) {
-        list.insert({ course,marks });
-    }
+    
 };
 
 class Record {
@@ -277,16 +296,9 @@ public:
 public:
     Record() {
         Courses courses{};
-        record[0] = courses;
+        record[""] = courses;
     }
-    Record(std::string term_id) {
-        Courses courses{};
-        record[term_id] = courses;
-    }
-    Record(std::string term_id, Courses &courses) {
-        
-        record[term_id] = courses;
-    }
+   
     
 
 
@@ -316,7 +328,7 @@ std::set<std::string> StudentDB::all_students()
 {
     /* Your code here */
     std::set<std::string> ids{};
-    for (auto iter  : this->db) {
+    for (auto &iter  : this->db) {
         ids.insert(iter.first);
     }
     return ids;
@@ -345,9 +357,9 @@ void StudentDB::enroll(std::string const &student_id, std::string const &course_
         throw e;
     }
 
-    Courses course{ course_id };
-    Record rec{ term, course };
-    db.insert({ student_id, rec });
+    Courses course{  };
+    course.list[course_id] = 101;
+    this->db[student_id].record[term] = course;
 
         
 }
@@ -355,46 +367,138 @@ void StudentDB::enroll(std::string const &student_id, std::string const &course_
 std::set<std::pair<std::string, std::string>> StudentDB::get_student_enrollment_records(std::string const &student_id)
 {
     /* Your code here */
+    StudentNotFoundChecker(student_id);
+    std::set<std::pair<std::string, std::string>> pairs{};
+    for (const auto &iter : this->db[student_id].record) {
+        for (const auto& it : iter.second.list) {
+            std::pair<std::string, std::string> temp = std::make_pair(iter.first, it.first);
+            pairs.insert(temp);
+        }
+    }
+    return pairs;
 }
 
 std::set<std::string> StudentDB::courses_taken_by_student(std::string const &student_id)
 {
-    /* Your code here */
+    std::set<std::pair<std::string, std::string>> enrolment{};
+    enrolment = get_student_enrollment_records(student_id);
+    std::set < std::string> courses_taken{};
+    for (const auto& iter : enrolment) {
+        
+            courses_taken.insert(iter.first);
+        
+    }
+    return courses_taken;
 }
 
 void StudentDB::assign_grade(std::string const &student_id, std::string const &course_id, std::string const &term, unsigned int grade)
 {
     /* Your code here */
+    StudentNotFoundChecker(student_id);
+    EnrolmentChecker(student_id, course_id, term);
+    if (grade > 100) {
+        InvalidGradeError e{ grade };
+        throw e;
+    }
+    this->db[student_id].record[term].list[course_id] = grade;
+
+
 }
 
 unsigned int StudentDB::get_grade(std::string const &student_id, std::string const &course_id, std::string const &term)
 {
     /* Your code here */
+    StudentNotFoundChecker(student_id);
+    EnrolmentChecker(student_id, course_id, term);
+
+    if (this->db[student_id].record[term].list[course_id] == 101) {
+        throw MissingGradeError{};
+    }
+
+    return this->db[student_id].record[term].list[course_id];
 }
 
-std::map<std::string, unsigned int> StudentDB::student_transcript_by_course(std::string const &student_id)
+std::map<std::string, unsigned int> StudentDB::student_transcript_by_course(std::string const& student_id)
 {
     /* Your code here */
+    StudentNotFoundChecker(student_id);
+    std::set<std::pair<std::string, unsigned int>> grades{};
+    for (const auto& it : this->db[student_id].record) {
+        for (const auto& iter : it.second.list) {
+            grades.insert(std::make_pair(iter.first, iter.second));
+        }
+
+    }
+    std::map<std::string, unsigned int> new_values{};
+    for (auto& it{ grades.rbegin() }; it != grades.rend(); ++it) {
+        new_values[it->first] = it->second;
+    }
+    return new_values;
 }
 
 double StudentDB::compute_student_average(std::string const &student_id)
 {
     /* Your code here */
+    StudentNotFoundChecker(student_id);
+    std::map<std::string, unsigned int> transcript{student_transcript_by_course(student_id)};
+    if (transcript.empty()) {
+        throw EmptyAverageError{};
+    }
+    unsigned int counter{transcript.size()};
+    unsigned int sum{};
+    for (const auto& iter : transcript) {
+        sum += iter.second;
+    }
+    double average{ sum / counter };
+    return average;
+
 }
 
 std::set<std::string> StudentDB::enrolled_students(std::string const &course_id, std::string const &term)
 {
     /* Your code here */
+    std::set<std::string> enrolled{};
+    for (auto& iter : this->db) {
+        if (iter.second.record.find(term) == iter.second.record.end())
+            continue;
+        else {
+            if (iter.second.record.at(term).list.find(course_id) == iter.second.record[term].list.end())
+                continue;
+            else {
+                enrolled.insert(iter.first);
+            }
+        }
+
+    }
 }
 
 std::map<std::string, unsigned int> StudentDB::course_grades(std::string const &course_id, std::string const &term)
 {
     /* Your code here */
+    std::set<std::string> enrolled{enrolled_students(course_id, term)};
+    std::map<std::string, unsigned int> map_coursegrades{};
+    for (std::string i : enrolled) {
+        if (this->db[i].record[term].list[course_id] != 101)
+            map_coursegrades[i] = (this->db[i].record[term].list[course_id]);
+
+    }
+
+
 }
 
 double StudentDB::compute_course_average(std::string const &course_id, std::string const &term)
 {
     /* Your code here */
+    std::map<std::string, unsigned int> grades{ course_grades(course_id, term) };
+    if (grades.empty())
+        throw EmptyAverageError{};
+    unsigned int sum{};
+    unsigned int count{ grades.size() };
+    for (const auto& it : grades) {
+        sum += it.second;
+    }
+    double average{ sum / count };
+    return average;
 }
 
 /*
